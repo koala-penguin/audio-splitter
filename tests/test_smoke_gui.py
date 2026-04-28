@@ -97,6 +97,56 @@ def test_end_to_end_load_split_save(tmp_path, qapp, monkeypatch):
     win.close()
 
 
+def test_ctrl_s_shortcut_triggers_export(tmp_path, qapp, monkeypatch):
+    """Regression: Ctrl+S must fire export exactly once (not be 'Ambiguous shortcut')."""
+    import logging
+
+    wav_path = tmp_path / "shortcut.wav"
+    _write_sine_wav(wav_path, seconds=3.0)
+
+    from PySide6.QtWidgets import QMessageBox
+
+    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: QMessageBox.Ok)
+    monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.Yes)
+
+    # Capture Qt warnings — "Ambiguous shortcut overload" is the symptom of
+    # a duplicate Ctrl+S registration. We fail the test if it appears.
+    qt_warnings: list[str] = []
+    from PySide6.QtCore import qInstallMessageHandler
+
+    def handler(mode, ctx, msg):
+        qt_warnings.append(str(msg))
+
+    qInstallMessageHandler(handler)
+    try:
+        win = MainWindow()
+        win.show()
+        win._load_path(wav_path)
+        win._waveform.add_marker(1.5)
+        QTest.qWait(50)
+
+        # Make sure the window has focus so the shortcut is delivered.
+        win.activateWindow()
+        win.setFocus()
+        QTest.qWait(50)
+
+        QTest.keyClick(win, Qt.Key_S, Qt.ControlModifier)
+        QTest.qWait(150)
+
+        out_dir = wav_path.parent / "output"
+        produced = sorted(p.name for p in out_dir.iterdir())
+        assert produced == ["shortcut_1.wav", "shortcut_2.wav"], (
+            f"Ctrl+S did not produce the expected splits; got {produced}"
+        )
+
+        ambiguous = [w for w in qt_warnings if "Ambiguous shortcut" in w]
+        assert not ambiguous, f"Ambiguous shortcut warnings: {ambiguous}"
+
+        win.close()
+    finally:
+        qInstallMessageHandler(None)
+
+
 def test_clear_splits_button(tmp_path, qapp, monkeypatch):
     wav_path = tmp_path / "smoke2.wav"
     _write_sine_wav(wav_path, seconds=4.0)

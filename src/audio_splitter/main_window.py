@@ -120,10 +120,10 @@ class MainWindow(QMainWindow):
         self._build_menu()
 
         # ---------- shortcuts ----------
+        # Ctrl+S and Ctrl+O are bound to QActions in the File menu; binding
+        # them again here would yield an "Ambiguous shortcut" warning.
         QShortcut(QKeySequence(Qt.Key_Space), self, activated=self._toggle_play)
         QShortcut(QKeySequence(Qt.Key_S), self, activated=self._add_split_at_playhead)
-        QShortcut(QKeySequence("Ctrl+S"), self, activated=self._save_splits)
-        QShortcut(QKeySequence("Ctrl+O"), self, activated=self._open_file_dialog)
         QShortcut(QKeySequence(Qt.Key_Home), self, activated=lambda: self._seek_to(0.0))
 
         # ---------- 30 Hz playhead refresh ----------
