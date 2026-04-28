@@ -1,0 +1,90 @@
+name: Release
+
+# Builds Windows + macOS artifacts on every tag of the form v*.*.*
+# (e.g. v0.1.0). Drafts a GitHub Release and attaches the binaries.
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:           # allow manual runs from the Actions tab
+
+permissions:
+  contents: write              # needed to create the Release
+
+jobs:
+  build:
+    name: Build ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact_name: AudioSplitter-windows
+            binary_glob: dist/AudioSplitter.exe
+          - os: macos-latest
+            artifact_name: AudioSplitter-macos
+            binary_glob: dist/AudioSplitter.app
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install "pyinstaller>=6.0"
+
+      - name: Run tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m pytest tests/ -v
+
+      - name: Build (PyInstaller)
+        run: python -m PyInstaller packaging/audio_splitter.spec --noconfirm
+
+      # macOS: zip the .app so the Release upload preserves the bundle.
+      - name: Package macOS .app
+        if: runner.os == 'macOS'
+        working-directory: dist
+        run: |
+          zip -r AudioSplitter-macos.zip AudioSplitter.app
+          ls -lh
+
+      - name: Upload artifact (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: dist/AudioSplitter.exe
+
+      - name: Upload artifact (macOS)
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: dist/AudioSplitter-macos.zip
+
+  release:
+    name: Draft GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: ls -R artifacts
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            artifacts/AudioSplitter-windows/AudioSplitter.exe
+            artifacts/AudioSplitter-macos/AudioSplitter-macos.zip
