@@ -2,12 +2,19 @@
 
 A small standalone GUI for chopping an audio file into pieces at points you pick visually.
 
+![Audio Splitter screenshot](docs/screenshot.png)
+
+
 - Drag a file in (`.wav .mp3 .ogg .flac .m4a .aac .aiff`)
 - See its waveform, scrub and play
 - Drop split markers
 - Press **Ctrl+S** to write `<name>_1.<ext>`, `<name>_2.<ext>`, ... into `./output/` next to the source file
 
 ffmpeg ships with the install via `imageio-ffmpeg`, so no separate install is required.
+
+## Download
+
+Pre-built binaries (Windows `.exe` and macOS `.app`) are attached to each tagged release on the [Releases page](https://github.com/koala-penguin/audio-splitter/releases).
 
 ## Run
 
